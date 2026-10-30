@@ -66,6 +66,10 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
 .small{font-size:12px;color:var(--muted)}
 .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%}
 .toast.show{opacity:1}
+.remind{display:none;position:sticky;top:0;z-index:5;align-items:center;gap:12px;flex-wrap:wrap;background:#fff4d6;color:#5c4300;border:1px solid #e9c46a;border-radius:10px;padding:9px 14px;margin:8px 0;font-size:14px}
+.remind.show{display:flex}
+.remind button{background:#5c4300;color:#fff4d6;border-color:#5c4300}
+.saved{color:var(--muted);font-size:13px}
 .del{border:none;background:none;color:var(--muted);cursor:pointer;padding:2px 6px}
 .del:hover{color:var(--red)}
 @media (max-width:640px){h1{font-size:19px}}
@@ -77,6 +81,7 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
   <div class="sub">Note /20 = note d'allure /15 (15 − sorties − pénalités) + note de VMA /5. En cas de rattrapage, la meilleure note est retenue. Les données restent dans ce navigateur : pensez à exporter une sauvegarde.</div>
 </header>
 <main>
+  <div class="remind" id="remind"><span id="remindTxt"></span><button id="bSave2">Exporter la sauvegarde maintenant</button></div>
   <div class="bar">
     <label class="btn">Importer listes de classe (.xlsx)<input id="fXlsx" type="file" accept=".xlsx,.xls,.csv" multiple hidden></label>
     <label class="btn">Importer sauvegarde / résultats (.json, .csv)<input id="fData" type="file" accept=".json,.csv" hidden></label>
@@ -85,6 +90,7 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
     <button id="bBareme">Barème</button>
     <button id="bAdd">+ Élève</button>
     <button id="bReset">Tout effacer</button>
+    <span class="saved" id="savedInfo"></span>
   </div>
   <div class="bar">
     <div class="tabs" id="tabs"></div>
@@ -118,7 +124,20 @@ let cur = "Toutes", query = "";
 
 /* ---------- stockage ---------- */
 function load(){ try{ const t = localStorage.getItem(KEY); if(t){ const d = JSON.parse(t); if(d && Array.isArray(d.students)) S = d; } }catch(e){} }
-let saveT; function save(){ clearTimeout(saveT); saveT = setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ toast("Enregistrement impossible dans ce navigateur : exportez une sauvegarde."); } }, 250); }
+let saveT; function save(clean){
+  if(clean){ S.changes = 0; } else { S.changes = (S.changes || 0) + 1; S.modifiedAt = Date.now(); }
+  updateRemind(); clearTimeout(saveT); saveT = setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ toast("Enregistrement impossible dans ce navigateur : exportez une sauvegarde."); } }, 250); }
+
+/* ---------- rappel de sauvegarde ---------- */
+function ago(ts){ if(!ts) return "jamais"; const m = Math.round((Date.now()-ts)/60000); if(m < 1) return "à l'instant"; if(m < 60) return `il y a ${m} min`; const h = Math.round(m/60); if(h < 24) return `il y a ${h} h`; return new Date(ts).toLocaleDateString("fr-FR"); }
+function updateRemind(){
+  const n = S.changes || 0, box = document.getElementById("remind");
+  box.classList.toggle("show", n > 0 && S.students.length > 0);
+  document.getElementById("remindTxt").innerHTML = `<b>${n} modification${n>1?"s":""} non sauvegardée${n>1?"s":""}</b> depuis votre dernière sauvegarde exportée (${ago(S.exportedAt)}).`;
+  document.getElementById("savedInfo").textContent = S.students.length ? `Dernière sauvegarde : ${ago(S.exportedAt)}` : "";
+}
+setInterval(updateRemind, 60000);
+window.addEventListener("beforeunload", e => { if((S.changes || 0) > 0 && S.students.length){ e.preventDefault(); e.returnValue = ""; } });
 
 /* ---------- barème ---------- */
 const niveau = c => parseInt(String(c).trim()[0], 10) || 0;
@@ -311,7 +330,7 @@ document.getElementById("fData").addEventListener("change", async ev => {
     if(d && Array.isArray(d.students)){
       if(S.students.length && !confirm(`Remplacer les ${S.students.length} élèves actuels par les ${d.students.length} élèves de la sauvegarde ?`)) return;
       S = d; S.students.forEach(s => { s.id = s.id || uid(); s.e = s.e || [blankE(), blankE()]; while(s.e.length < 2) s.e.push(blankE()); });
-      sortStudents(); save(); render(); toast(`Sauvegarde chargée : ${S.students.length} élèves`); return;
+      S.exportedAt = S.exportedAt || Date.now(); sortStudents(); save(true); render(); toast(`Sauvegarde chargée : ${S.students.length} élèves`); return;
     }
     rows = Array.isArray(d) ? d : (d.results || []);
   } else rows = parseCSV(text);
@@ -324,7 +343,9 @@ document.getElementById("fData").addEventListener("change", async ev => {
 
 /* ---------- exports ---------- */
 const stamp = () => new Date().toISOString().slice(0,10);
-document.getElementById("bSave").onclick = () => { download(`sauvegarde-12-a-choix-${stamp()}.json`, JSON.stringify(S, null, 1), "application/json"); toast("Sauvegarde téléchargée"); };
+function exportBackup(){ S.exportedAt = Date.now(); S.changes = 0; download(`sauvegarde-12-a-choix-${stamp()}.json`, JSON.stringify(S, null, 1), "application/json"); save(true); toast("Sauvegarde téléchargée : rangez-la dans un dossier sûr"); }
+document.getElementById("bSave").onclick = exportBackup;
+document.getElementById("bSave2").onclick = exportBackup;
 document.getElementById("bCsv").onclick = () => {
   const list = S.students.filter(s => cur === "Toutes" || s.classe === cur);
   const al = { V:"Verte", J:"Jaune", O:"Orange", "":"" };
@@ -357,7 +378,7 @@ function baremeTable(title, top){
 document.getElementById("bareme").innerHTML = baremeTable("6e-5e (filles et garçons)", 14) + baremeTable("4e-3e filles", 15) + baremeTable("4e-3e garçons", 17);
 document.getElementById("bBareme").onclick = () => document.getElementById("dBareme").showModal();
 
-load(); sortStudents(); render();
+load(); sortStudents(); render(); updateRemind();
 </script>
 </body>
 </html>

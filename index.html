@@ -270,13 +270,18 @@ function addStudent(classe, nom, prenom, sexe){
 }
 document.getElementById("fXlsx").addEventListener("change", async ev => {
   if(typeof XLSX === "undefined"){ toast("Lecteur Excel non chargé (connexion internet requise)."); return; }
-  let added = 0, msgs = [];
+  let added = 0, msgs = [], resultFiles = [];
   for(const file of ev.target.files){
     let classe = (file.name.match(/([3-6]\s?[A-Z])/i) || [])[1];
     if(!classe) classe = prompt(`Classe pour le fichier « ${file.name} » ?`, "");
     if(!classe){ msgs.push(`${file.name} : ignoré (classe inconnue)`); continue; }
     classe = classe.replace(/\s/g, "").toUpperCase();
-    const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    let wb;
+    if(/\.csv$/i.test(file.name)){
+      const text = await file.text();
+      if(/sorties|penalit/i.test(text.split(/\r?\n/)[0])){ resultFiles.push(text); continue; }
+      wb = XLSX.read(text.replace(/^\uFEFF/, ""), { type: "string" });
+    } else wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
     let hi = rows.findIndex(r => r.some(c => norm(c) === "NOM"));
     if(hi < 0){ msgs.push(`${file.name} : colonne « Nom » introuvable`); continue; }
@@ -290,7 +295,9 @@ document.getElementById("fXlsx").addEventListener("change", async ev => {
     }
     added += n; msgs.push(`${classe} : ${n} élève(s) ajouté(s)`);
   }
-  ev.target.value = ""; sortStudents(); save(); render();
+  ev.target.value = "";
+  if(resultFiles.length){ if(added){ sortStudents(); save(); } importResults(resultFiles.flatMap(parseCSV)); return; }
+  sortStudents(); save(); render();
   report("Import des listes", `<p>${added} élève(s) ajouté(s) au total.</p><ul>${msgs.map(m=>`<li>${esc(m)}</li>`).join("")}</ul>`);
 });
 
@@ -334,12 +341,16 @@ document.getElementById("fData").addEventListener("change", async ev => {
     }
     rows = Array.isArray(d) ? d : (d.results || []);
   } else rows = parseCSV(text);
+  importResults(rows);
+});
+function importResults(rows){
   const miss = [];
   let ok = 0;
   for(const r of rows){ if(!r.nom) continue; if(applyResult(r)) ok++; else miss.push(`${r.classe||"?"} – ${r.nom} ${r.prenom||""}`); }
   save(); render();
-  report("Import des résultats", `<p><b>${ok}</b> résultat(s) appliqué(s).</p>` + (miss.length ? `<p>${miss.length} élève(s) non trouvé(s) dans les listes, à saisir à la main :</p><ul>${miss.map(m=>`<li>${esc(m)}</li>`).join("")}</ul>` : ""));
-});
+  const hint = !S.students.length || ok === 0 ? `<p><b>Aucun élève correspondant.</b> Importez d'abord la liste des élèves (fichier eleves_5_classes.json ou listes .xlsx), puis ce fichier de résultats.</p>` : "";
+  report("Import des résultats", `<p><b>${ok}</b> résultat(s) appliqué(s).</p>` + hint + (miss.length && ok ? `<p>${miss.length} élève(s) non trouvé(s) dans les listes, à saisir à la main :</p><ul>${miss.map(m=>`<li>${esc(m)}</li>`).join("")}</ul>` : ""));
+}
 
 /* ---------- exports ---------- */
 const stamp = () => new Date().toISOString().slice(0,10);

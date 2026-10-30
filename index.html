@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes 12' à choix</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f6f5f1; --panel:#ffffff; --ink:#1d1d1b; --muted:#6b6a65; --line:#e3e1da;
+  --accent:#1f6f5c; --accent-ink:#ffffff; --soft:#eaf3ef;
+  --green:#2e8b57; --yellow:#c99a06; --orange:#d9681a; --red:#b3261e; --abs:#efece4;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#161614; --panel:#201f1d; --ink:#ecebe6; --muted:#a09e97; --line:#34332f;
+    --accent:#4fb393; --accent-ink:#0d1f19; --soft:#1f2f29; --abs:#2a2926;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#161614; --panel:#201f1d; --ink:#ecebe6; --muted:#a09e97; --line:#34332f;
+  --accent:#4fb393; --accent-ink:#0d1f19; --soft:#1f2f29; --abs:#2a2926;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 16px 8px;max-width:1300px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px}
+main{max-width:1300px;margin:0 auto;padding:0 16px 40px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+button,.btn{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 12px;border-radius:8px;cursor:pointer}
+button:hover,.btn:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{padding:6px 12px;border-radius:999px}
+.tab.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+input[type=search]{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);min-width:180px}
+.stats{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin:4px 0 10px}
+.stats b{color:var(--ink)}
+.wrap{overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;max-height:75vh}
+table{border-collapse:collapse;width:100%;min-width:980px}
+th,td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+thead th{position:sticky;top:0;background:var(--panel);z-index:2;font-size:12px;color:var(--muted);font-weight:600}
+thead tr:first-child th{top:0}
+thead tr:nth-child(2) th{top:27px}
+th.grp{font-size:13px;color:var(--ink);border-bottom:2px solid var(--accent)}
+td.name{text-align:left;position:sticky;left:0;background:var(--panel);z-index:1;min-width:210px}
+td.name small{color:var(--muted)}
+tr.abs td{background:var(--abs);color:var(--muted)}
+tr:hover td{background:var(--soft)}
+td input{width:52px;font:inherit;text-align:center;padding:4px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink)}
+td input:focus,td select:focus{outline:2px solid var(--accent);border-color:transparent}
+td select{font:inherit;padding:3px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.sx{display:inline-block;width:24px;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--line)}
+.n{font-variant-numeric:tabular-nums;color:var(--muted)}
+.n20{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.final{font-weight:800;font-size:16px;color:var(--accent);font-variant-numeric:tabular-nums}
+.sepl{border-left:2px solid var(--line)}
+.al-V{color:var(--green)} .al-J{color:var(--yellow)} .al-O{color:var(--orange)}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);max-width:760px;width:calc(100% - 32px);padding:20px}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+.bareme{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.bareme table{min-width:0;font-size:13px}
+.bareme th,.bareme td{padding:3px 6px}
+.small{font-size:12px;color:var(--muted)}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%}
+.toast.show{opacity:1}
+.del{border:none;background:none;color:var(--muted);cursor:pointer;padding:2px 6px}
+.del:hover{color:var(--red)}
+@media (max-width:640px){h1{font-size:19px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Épreuve du 12' à choix · Notes</h1>
+  <div class="sub">Note /20 = note d'allure /15 (15 − sorties − pénalités) + note de VMA /5. En cas de rattrapage, la meilleure note est retenue. Les données restent dans ce navigateur : pensez à exporter une sauvegarde.</div>
+</header>
+<main>
+  <div class="bar">
+    <label class="btn">Importer listes de classe (.xlsx)<input id="fXlsx" type="file" accept=".xlsx,.xls,.csv" multiple hidden></label>
+    <label class="btn">Importer sauvegarde / résultats (.json, .csv)<input id="fData" type="file" accept=".json,.csv" hidden></label>
+    <button id="bSave" class="primary">Exporter sauvegarde</button>
+    <button id="bCsv">Exporter notes (CSV)</button>
+    <button id="bBareme">Barème</button>
+    <button id="bAdd">+ Élève</button>
+    <button id="bReset">Tout effacer</button>
+  </div>
+  <div class="bar">
+    <div class="tabs" id="tabs"></div>
+    <input type="search" id="q" placeholder="Rechercher un élève">
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="wrap"><div id="table"></div></div>
+  <p class="small">Astuce : <b>Entrée</b> passe à l'élève suivant dans la même colonne, <b>Tab</b> au champ suivant. Cliquez sur F/G pour changer le sexe. VMA en km/h entiers (une valeur décimale est arrondie à l'entier inférieur).</p>
+</main>
+
+<dialog id="dBareme">
+  <h2 style="margin-top:0">Barème</h2>
+  <div class="bareme" id="bareme"></div>
+  <p class="small">Note d'allure /15 : 15 − (sorties de route + pénalités), minimum 0. Courir plus vite que l'allure cible n'est pas pénalisé.</p>
+  <form method="dialog"><button class="primary">Fermer</button></form>
+</dialog>
+
+<dialog id="dReport">
+  <h2 style="margin-top:0" id="rTitle">Import</h2>
+  <div id="rBody" style="max-height:55vh;overflow:auto"></div>
+  <form method="dialog" style="margin-top:12px"><button class="primary">OK</button></form>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const KEY = "notes12achoix_v1";
+let S = { app: "12-a-choix", version: 1, students: [] };
+let cur = "Toutes", query = "";
+
+/* ---------- stockage ---------- */
+function load(){ try{ const t = localStorage.getItem(KEY); if(t){ const d = JSON.parse(t); if(d && Array.isArray(d.students)) S = d; } }catch(e){} }
+let saveT; function save(){ clearTimeout(saveT); saveT = setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ toast("Enregistrement impossible dans ce navigateur : exportez une sauvegarde."); } }, 250); }
+
+/* ---------- barème ---------- */
+const niveau = c => parseInt(String(c).trim()[0], 10) || 0;
+function topVMA(classe, sexe){ const n = niveau(classe); if(n === 6 || n === 5) return 14; return sexe === "F" ? 15 : 17; }
+function pts5(st){
+  if(st.vma === null || st.vma === "" || isNaN(st.vma)) return null;
+  const v = Math.floor(Number(st.vma)), top = topVMA(st.classe, st.sexe);
+  return Math.min(5, Math.max(0.5, 5 - 0.5 * (top - v)));
+}
+function pts15(e){
+  if(e.sorties === null && e.pen === null) return null;
+  return Math.max(0, 15 - ((e.sorties || 0) + (e.pen || 0)));
+}
+function note(st, k){ const a = pts15(st.e[k]), b = pts5(st); return (a === null || b === null) ? null : a + b; }
+function finale(st){ if(st.abs) return null; const n = [note(st,0), note(st,1)].filter(x => x !== null); return n.length ? Math.max(...n) : null; }
+const fmt = x => x === null ? "—" : String(x).replace(".", ",");
+
+/* ---------- utilitaires ---------- */
+const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/[^A-Z]/g, "");
+const uid = () => "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const blankE = () => ({ allure: "", sorties: null, pen: null });
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+function toast(m){ const t = document.getElementById("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove("show"), 3200); }
+function classes(){ return [...new Set(S.students.map(s => s.classe))].sort((a,b)=> niveau(b)-niveau(a) || a.localeCompare(b)); }
+function sortStudents(){ S.students.sort((a,b)=> (niveau(b)-niveau(a)) || a.classe.localeCompare(b.classe) || a.nom.localeCompare(b.nom,"fr") || a.prenom.localeCompare(b.prenom,"fr")); }
+function download(name, text, type){ const b = new Blob([text], { type }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+function report(title, html){ document.getElementById("rTitle").textContent = title; document.getElementById("rBody").innerHTML = html; document.getElementById("dReport").showModal(); }
+
+/* ---------- affichage ---------- */
+function renderTabs(){
+  const t = document.getElementById("tabs"), cl = ["Toutes", ...classes()];
+  if(!cl.includes(cur)) cur = "Toutes";
+  t.innerHTML = cl.map(c => `<button class="tab ${c===cur?"on":""}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
+}
+function visible(){
+  const q = norm(query);
+  return S.students.filter(s => (cur === "Toutes" || s.classe === cur) && (!q || norm(s.nom + s.prenom).includes(q) || norm(s.prenom + s.nom).includes(q)));
+}
+function renderStats(){
+  const list = S.students.filter(s => cur === "Toutes" || s.classe === cur);
+  const notes = list.map(finale).filter(x => x !== null);
+  const moy = notes.length ? (notes.reduce((a,b)=>a+b,0) / notes.length).toFixed(1).replace(".", ",") : "—";
+  const abs = list.filter(s => s.abs).length;
+  const ratt = list.filter(s => note(s,1) !== null).length;
+  document.getElementById("stats").innerHTML =
+    `<span>Élèves : <b>${list.length}</b></span><span>Notés : <b>${notes.length}</b></span><span>À saisir : <b>${list.length - notes.length - abs}</b></span><span>Absents/dispensés : <b>${abs}</b></span><span>Rattrapages saisis : <b>${ratt}</b></span><span>Moyenne : <b>${moy}</b>/20</span>`;
+}
+function allureSel(k, v){
+  return `<select data-f="allure${k}" class="al-${v}"><option value=""></option><option value="V" ${v==="V"?"selected":""}>Verte</option><option value="J" ${v==="J"?"selected":""}>Jaune</option><option value="O" ${v==="O"?"selected":""}>Orange</option></select>`;
+}
+function num(f, v){ return `<input data-f="${f}" inputmode="decimal" value="${v===null||v===undefined?"":String(v).replace(".", ",")}">`; }
+function rowHTML(s){
+  const showCl = cur === "Toutes" ? ` <small>${esc(s.classe)}</small>` : "";
+  return `<tr data-id="${s.id}" class="${s.abs?"abs":""}">
+    <td class="name"><b>${esc(s.nom)}</b> ${esc(s.prenom)}${showCl}</td>
+    <td><span class="sx" data-act="sexe" title="Changer">${s.sexe}</span></td>
+    <td>${num("vma", s.vma)}</td><td class="n" data-o="p5">${fmt(pts5(s))}</td>
+    <td class="sepl">${allureSel(0, s.e[0].allure)}</td><td>${num("sorties0", s.e[0].sorties)}</td><td>${num("pen0", s.e[0].pen)}</td><td class="n20" data-o="n0">${fmt(note(s,0))}</td>
+    <td class="sepl">${allureSel(1, s.e[1].allure)}</td><td>${num("sorties1", s.e[1].sorties)}</td><td>${num("pen1", s.e[1].pen)}</td><td class="n20" data-o="n1">${fmt(note(s,1))}</td>
+    <td class="sepl final" data-o="fin">${s.abs ? "Abs" : fmt(finale(s))}</td>
+    <td><input type="checkbox" data-f="abs" ${s.abs?"checked":""} style="width:auto" title="Absent / dispensé"></td>
+    <td><button class="del" data-act="del" title="Supprimer l'élève">✕</button></td>
+  </tr>`;
+}
+function render(){
+  renderTabs(); renderStats();
+  const el = document.getElementById("table");
+  if(!S.students.length){
+    el.innerHTML = `<div class="empty">Aucun élève. Importez vos listes de classe (.xlsx) ou un fichier de sauvegarde (.json) avec les boutons ci-dessus.</div>`; return;
+  }
+  const list = visible();
+  el.innerHTML = `<table><thead>
+    <tr><th></th><th></th><th colspan="2" class="grp">VMA</th><th colspan="4" class="grp sepl">Essai 1</th><th colspan="4" class="grp sepl">Rattrapage</th><th class="grp sepl">Retenue</th><th></th><th></th></tr>
+    <tr><th style="text-align:left">Élève</th><th>Sexe</th><th>km/h</th><th>/5</th>
+    <th class="sepl">Allure</th><th>Sorties</th><th>Pénal.</th><th>/20</th>
+    <th class="sepl">Allure</th><th>Sorties</th><th>Pénal.</th><th>/20</th>
+    <th class="sepl">/20</th><th>Abs.</th><th></th></tr></thead>
+    <tbody>${list.map(rowHTML).join("")}</tbody></table>
+    ${list.length ? "" : `<div class="empty">Aucun élève ne correspond.</div>`}`;
+}
+function refreshRow(tr, s){
+  tr.querySelector('[data-o="p5"]').textContent = fmt(pts5(s));
+  tr.querySelector('[data-o="n0"]').textContent = fmt(note(s,0));
+  tr.querySelector('[data-o="n1"]').textContent = fmt(note(s,1));
+  tr.querySelector('[data-o="fin"]').textContent = s.abs ? "Abs" : fmt(finale(s));
+  tr.className = s.abs ? "abs" : "";
+  renderStats();
+}
+
+/* ---------- édition ---------- */
+function parseNum(v){ v = String(v).trim().replace(",", "."); if(v === "") return null; const n = Number(v); return isNaN(n) || n < 0 ? NaN : n; }
+const tableEl = document.getElementById("table");
+tableEl.addEventListener("change", ev => {
+  const t = ev.target, tr = t.closest("tr[data-id]"); if(!tr) return;
+  const s = S.students.find(x => x.id === tr.dataset.id), f = t.dataset.f; if(!s || !f) return;
+  if(f === "abs"){ s.abs = t.checked; }
+  else if(f.startsWith("allure")){ s.e[+f.slice(-1)].allure = t.value; t.className = "al-" + t.value; }
+  else {
+    const n = parseNum(t.value);
+    if(Number.isNaN(n)){ toast("Valeur non valide"); t.value = ""; return; }
+    if(f === "vma") s.vma = n;
+    else { const k = +f.slice(-1), key = f.startsWith("sorties") ? "sorties" : "pen"; s.e[k][key] = n === null ? null : Math.round(n); }
+  }
+  refreshRow(tr, s); save();
+});
+tableEl.addEventListener("click", ev => {
+  const b = ev.target.closest("[data-act]"); if(!b) return;
+  const tr = b.closest("tr[data-id]"), s = S.students.find(x => x.id === tr.dataset.id); if(!s) return;
+  if(b.dataset.act === "sexe"){ s.sexe = s.sexe === "F" ? "G" : "F"; b.textContent = s.sexe; refreshRow(tr, s); save(); }
+  if(b.dataset.act === "del" && confirm(`Supprimer ${s.prenom} ${s.nom} (${s.classe}) ?`)){ S.students = S.students.filter(x => x !== s); save(); render(); }
+});
+tableEl.addEventListener("keydown", ev => {
+  if(ev.key !== "Enter" || !ev.target.dataset.f) return;
+  ev.preventDefault(); ev.target.dispatchEvent(new Event("change", { bubbles: true }));
+  const tr = ev.target.closest("tr"), next = tr.nextElementSibling;
+  const el = next && next.querySelector(`[data-f="${ev.target.dataset.f}"]`);
+  if(el){ el.focus(); el.select && el.select(); }
+});
+tableEl.addEventListener("focusin", ev => { if(ev.target.tagName === "INPUT" && ev.target.type !== "checkbox") ev.target.select(); });
+
+document.getElementById("tabs").addEventListener("click", ev => { const b = ev.target.closest("[data-c]"); if(b){ cur = b.dataset.c; render(); } });
+document.getElementById("q").addEventListener("input", ev => { query = ev.target.value; render(); });
+
+/* ---------- import listes de classe ---------- */
+function addStudent(classe, nom, prenom, sexe){
+  const dup = S.students.find(s => s.classe === classe && norm(s.nom) === norm(nom) && norm(s.prenom) === norm(prenom));
+  if(dup) return false;
+  S.students.push({ id: uid(), classe, nom, prenom, sexe, vma: null, abs: false, e: [blankE(), blankE()] });
+  return true;
+}
+document.getElementById("fXlsx").addEventListener("change", async ev => {
+  if(typeof XLSX === "undefined"){ toast("Lecteur Excel non chargé (connexion internet requise)."); return; }
+  let added = 0, msgs = [];
+  for(const file of ev.target.files){
+    let classe = (file.name.match(/([3-6]\s?[A-Z])/i) || [])[1];
+    if(!classe) classe = prompt(`Classe pour le fichier « ${file.name} » ?`, "");
+    if(!classe){ msgs.push(`${file.name} : ignoré (classe inconnue)`); continue; }
+    classe = classe.replace(/\s/g, "").toUpperCase();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
+    let hi = rows.findIndex(r => r.some(c => norm(c) === "NOM"));
+    if(hi < 0){ msgs.push(`${file.name} : colonne « Nom » introuvable`); continue; }
+    const h = rows[hi].map(norm), ni = h.indexOf("NOM"), pi = h.findIndex(x => x.startsWith("PRENOM")), si = h.indexOf("SEXE");
+    let n = 0;
+    for(const r of rows.slice(hi + 1)){
+      const nom = String(r[ni] || "").trim(); if(!nom) continue;
+      const sx = si >= 0 ? norm(r[si]) : "";
+      const sexe = sx.startsWith("F") ? "F" : sx.startsWith("M") || sx.startsWith("G") ? "G" : "F";
+      if(addStudent(classe, nom, String(r[pi] || "").trim(), sexe)) n++;
+    }
+    added += n; msgs.push(`${classe} : ${n} élève(s) ajouté(s)`);
+  }
+  ev.target.value = ""; sortStudents(); save(); render();
+  report("Import des listes", `<p>${added} élève(s) ajouté(s) au total.</p><ul>${msgs.map(m=>`<li>${esc(m)}</li>`).join("")}</ul>`);
+});
+
+/* ---------- import sauvegarde / résultats ---------- */
+function findStudent(classe, nom, prenom){
+  const N = norm(nom), P = norm(prenom), C = String(classe||"").replace(/\s/g,"").toUpperCase();
+  let m = S.students.filter(s => (!C || s.classe === C) && norm(s.nom) === N && norm(s.prenom) === P);
+  if(m.length === 1) return m[0];
+  m = S.students.filter(s => norm(s.nom) === N && norm(s.prenom) === P);
+  return m.length === 1 ? m[0] : null;
+}
+function applyResult(r){
+  const s = findStudent(r.classe, r.nom, r.prenom); if(!s) return false;
+  const k = Number(r.essai) === 2 ? 1 : 0;
+  if(r.vma !== null && r.vma !== undefined && r.vma !== "") s.vma = parseNum(r.vma);
+  const al = String(r.allure || "").trim().toUpperCase()[0]; if(["V","J","O"].includes(al)) s.e[k].allure = al;
+  const so = parseNum(r.sorties ?? ""), pe = parseNum(r.penalites ?? r.pen ?? "");
+  if(so !== null && !Number.isNaN(so)) s.e[k].sorties = Math.round(so);
+  if(pe !== null && !Number.isNaN(pe)) s.e[k].pen = Math.round(pe);
+  if(String(r.absent || "").trim()) s.abs = /^(1|oui|o|x|abs|true)/i.test(String(r.absent).trim());
+  if(r.sexe){ const sx = norm(r.sexe)[0]; if(sx === "F") s.sexe = "F"; if(sx === "G" || sx === "M") s.sexe = "G"; }
+  return true;
+}
+function parseCSV(text){
+  text = text.replace(/^﻿/, "");
+  const sep = (text.split("\n")[0].match(/;/g)||[]).length >= (text.split("\n")[0].match(/,/g)||[]).length ? ";" : ",";
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  const head = lines[0].split(sep).map(h => norm(h).toLowerCase());
+  return lines.slice(1).map(l => { const c = l.split(sep), o = {}; head.forEach((h,i) => o[h] = (c[i]||"").trim()); return o; });
+}
+document.getElementById("fData").addEventListener("change", async ev => {
+  const file = ev.target.files[0]; if(!file) return; ev.target.value = "";
+  const text = await file.text();
+  let rows;
+  if(/\.json$/i.test(file.name)){
+    let d; try{ d = JSON.parse(text); }catch(e){ toast("Fichier JSON illisible"); return; }
+    if(d && Array.isArray(d.students)){
+      if(S.students.length && !confirm(`Remplacer les ${S.students.length} élèves actuels par les ${d.students.length} élèves de la sauvegarde ?`)) return;
+      S = d; S.students.forEach(s => { s.id = s.id || uid(); s.e = s.e || [blankE(), blankE()]; while(s.e.length < 2) s.e.push(blankE()); });
+      sortStudents(); save(); render(); toast(`Sauvegarde chargée : ${S.students.length} élèves`); return;
+    }
+    rows = Array.isArray(d) ? d : (d.results || []);
+  } else rows = parseCSV(text);
+  const miss = [];
+  let ok = 0;
+  for(const r of rows){ if(!r.nom) continue; if(applyResult(r)) ok++; else miss.push(`${r.classe||"?"} – ${r.nom} ${r.prenom||""}`); }
+  save(); render();
+  report("Import des résultats", `<p><b>${ok}</b> résultat(s) appliqué(s).</p>` + (miss.length ? `<p>${miss.length} élève(s) non trouvé(s) dans les listes, à saisir à la main :</p><ul>${miss.map(m=>`<li>${esc(m)}</li>`).join("")}</ul>` : ""));
+});
+
+/* ---------- exports ---------- */
+const stamp = () => new Date().toISOString().slice(0,10);
+document.getElementById("bSave").onclick = () => { download(`sauvegarde-12-a-choix-${stamp()}.json`, JSON.stringify(S, null, 1), "application/json"); toast("Sauvegarde téléchargée"); };
+document.getElementById("bCsv").onclick = () => {
+  const list = S.students.filter(s => cur === "Toutes" || s.classe === cur);
+  const al = { V:"Verte", J:"Jaune", O:"Orange", "":"" };
+  const lines = [["Classe","Nom","Prénom","Sexe","VMA","Note VMA /5","Allure essai 1","Sorties+pénalités essai 1","Note essai 1 /20","Allure rattrapage","Sorties+pénalités rattrapage","Note rattrapage /20","Note retenue /20"].join(";")];
+  for(const s of list){
+    const sp = k => (s.e[k].sorties === null && s.e[k].pen === null) ? "" : (s.e[k].sorties||0) + (s.e[k].pen||0);
+    const nf = v => v === null ? "" : String(v).replace(".", ",");
+    lines.push([s.classe, s.nom, s.prenom, s.sexe, nf(s.vma), nf(pts5(s)), al[s.e[0].allure], sp(0), nf(note(s,0)), al[s.e[1].allure], sp(1), nf(note(s,1)), s.abs ? "Abs" : nf(finale(s))].join(";"));
+  }
+  download(`notes-12-a-choix-${cur === "Toutes" ? "toutes-classes" : cur}-${stamp()}.csv`, "﻿" + lines.join("\r\n"), "text/csv;charset=utf-8");
+};
+document.getElementById("bAdd").onclick = () => {
+  const classe = prompt("Classe (ex. 5C) ?", cur !== "Toutes" ? cur : ""); if(!classe) return;
+  const nom = prompt("Nom ?"); if(!nom) return;
+  const prenom = prompt("Prénom ?") || "";
+  const sexe = (prompt("Sexe (F ou G) ?", "F") || "F").trim().toUpperCase().startsWith("G") ? "G" : "F";
+  if(!addStudent(classe.replace(/\s/g,"").toUpperCase(), nom.trim().toUpperCase(), prenom.trim(), sexe)) toast("Cet élève existe déjà");
+  sortStudents(); save(); render();
+};
+document.getElementById("bReset").onclick = () => {
+  if(!S.students.length) return;
+  if(confirm("Effacer TOUS les élèves et toutes les notes de ce navigateur ? Exportez une sauvegarde avant si besoin.") && confirm("Confirmer l'effacement définitif ?")){ S.students = []; save(); render(); }
+};
+
+/* ---------- barème (affichage) ---------- */
+function baremeTable(title, top){
+  let r = ""; for(let v = top; v >= top - 9; v--){ const p = 5 - 0.5 * (top - v); r += `<tr><td>${v === top ? "≥ " + v : v === top - 9 ? "≤ " + v : v}</td><td>${fmt(p)}</td></tr>`; }
+  return `<div><b>${title}</b><table><thead><tr><th>VMA (km/h)</th><th>Points /5</th></tr></thead><tbody>${r}</tbody></table></div>`;
+}
+document.getElementById("bareme").innerHTML = baremeTable("6e-5e (filles et garçons)", 14) + baremeTable("4e-3e filles", 15) + baremeTable("4e-3e garçons", 17);
+document.getElementById("bBareme").onclick = () => document.getElementById("dBareme").showModal();
+
+load(); sortStudents(); render();
+</script>
+</body>
+</html>
